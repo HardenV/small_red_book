@@ -1,0 +1,26 @@
+create table note
+(
+ID varchar(5) not null primary key, 
+account varchar(11) not null,
+pass varchar(11) null
+)
+
+create table online
+(
+IP varchar(16) not null primary key,
+account varchar(11) not null
+)
+
+create table fan
+(
+fanaccount varchar(11) null primary key,
+fanIP varchar(16) null,
+account varchar(11) not null
+)
+
+create table care
+(
+careaccount varchar(11) null primary key,
+careIP varchar(16) null,
+account varchar(11) not null
+)
