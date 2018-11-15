@@ -1,3 +1,4 @@
+//笔记表
 create table note
 (
 ID varchar(5) not null primary key, 
@@ -5,12 +6,14 @@ account varchar(11) not null,
 pass varchar(11) null
 )
 
+//在线人数表
 create table online
 (
 IP varchar(16) not null primary key,
 account varchar(11) not null
 )
 
+//粉丝表
 create table fan
 (
 fanaccount varchar(11) null primary key,
@@ -18,6 +21,7 @@ fanIP varchar(16) null,
 account varchar(11) not null
 )
 
+//关注人表
 create table care
 (
 careaccount varchar(11) null primary key,
