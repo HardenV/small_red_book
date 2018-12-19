@@ -51,15 +51,26 @@ void Task::doit()
     while(1)
     {
 		//先按包头大小收包头 获取实际数据长度
-		int ret = recv(sockfd,buffer, sizeof(STRU_HEADER),0);
-		int pac_size;
-		if(ret > 0)
+		int ret;
+		while((ret = recv(sockfd,buffer, sizeof(STRU_HEADER),0)) < 0);
+		if(ret == 0)
 		{
+			struct epoll_event ev;
+			ev.events = EPOLLIN;
+			ev.data.fd = sockfd;
+			epoll_ctl(repollfd, EPOLL_CTL_DEL, sockfd, &ev);
+			shutdown(sockfd, SHUT_RDWR);
+			printf("%d 连接断开\n", sockfd);
+			return;
+		}
+		int pac_size;
+		//if(ret > 0)
+		//{
 			STRU_HEADER* shead = (STRU_HEADER*)buffer;
 			pac_size = shead->pac_size;
 			printf("%d\n",pac_size);
 			//再按实际长度收取数据
-			ret = recv(sockfd, buffer, pac_size ,0);
+			while((ret = recv(sockfd, buffer, pac_size ,0)) < 0);
 			printf("ret %d\n",ret);
 			//printf("%s\n",buffer);
 			//某个fd关闭了连接，从Epoll中删除并关闭fd
@@ -70,11 +81,11 @@ void Task::doit()
 				ev.data.fd = sockfd;
 				epoll_ctl(repollfd, EPOLL_CTL_DEL, sockfd, &ev);
 				shutdown(sockfd, SHUT_RDWR);
-				printf("%d 接收完成\n", sockfd);
-				break;
+				printf("%d 连接断开\n", sockfd);
+				return;
 			}
 			//读取出错，尝试再次读取
-			else if(ret < 0)
+			/*else if(ret < 0)
 			{
 				if(errno == EAGAIN)	
 				{
@@ -83,18 +94,18 @@ void Task::doit()
                     cout<<"reset epollfd"<<endl;
 					break;
 				}
-			}
+			}*/
 			//成功读取，将读取信息发送给中介者
 			else
 			{
 				m_TCPKernel->DealData(sockfd,buffer);
 			}
-   		}
-		else if(ret < 0)
-		{
-			cout<<"error"<<endl;
-			break;
-		}
+   		//}
+		//else if(ret < 0)
+		//{
+			//cout<<"error"<<endl;
+			//break;
+		//}
 	} 
 }
 void TCPNet::DealData()
@@ -103,6 +114,7 @@ void TCPNet::DealData()
 	//将sockfd加入epoll
 	addfd(epollfd, sockfd, false);
 
+	int accNum = 0;
 	//epoll开始监听IO请求
 	while(!is_stop)
 	{
@@ -120,26 +132,31 @@ void TCPNet::DealData()
 				struct sockaddr_in clientAddr;
 				socklen_t len = sizeof(clientAddr);
 				//accept连接请求
-				int confd = accept(sockfd, (struct sockaddr *)
-					&clientAddr, &len);
- 
+				int confd;
+				while((confd = accept(sockfd, (struct sockaddr *)
+					&clientAddr, &len)) != -1)
+				{
+					printf("accepted from %s,port %d\n",
+						inet_ntoa(clientAddr.sin_addr),htons(clientAddr.sin_port));
+					printf("%d\n",accNum++);
 				//将新的confd加入epoll中
-				//TCPNet::addfd(epollfd, confd, true);
+				TCPNet::addfd(epollfd, confd, true);
 				int recvsize = 500*1024*1024;
 				if(setsockopt(fd, SOL_SOCKET,SO_RCVBUF,(const char*)&recvsize,sizeof(int)) == -1)
 					printf("setsocket error\n");
 				else
 					printf("setsocket success\n");
-				TCPNet::addfd(epollfd, confd, true);
+					TCPNet::addfd(epollfd, confd, true);
+				}
 			}
 			else if(events[i].events & EPOLLIN)  //某个fd上有数据可读
 			{
 				//更改sock缓冲区大小
-				/*int recvsize = 500*1024*1024;
+				int recvsize = 500*1024*1024;
 				if(setsockopt(fd, SOL_SOCKET,SO_RCVBUF,(const char*)&recvsize,sizeof(int)) == -1)
 					printf("setsocket error\n");
 				else
-					printf("setsocket success\n");*/
+					printf("setsocket success\n");
                 BaseTask *task = new Task(epollfd,fd,m_pTCPKernel);
 				pool->append_task(task);
 			}
